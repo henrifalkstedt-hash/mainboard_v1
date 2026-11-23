@@ -33,6 +33,9 @@ button:active{opacity:.8}
 .quick button{height:auto;padding:12px 0;background:#e8f1fc;color:#1565c0;display:grid;font-size:14px}
 .quick small{font-size:10px;font-weight:500;opacity:.8}
 .pane{background:var(--soft);border-radius:12px;padding:10px}
+.wstatus{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;text-align:center;display:grid;gap:2px}
+.wstatus-main{font-size:15px;font-weight:800;color:var(--ink)}
+.wstatus-sub{font-size:12px;font-weight:700;color:var(--amber)}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .lab5{display:grid;grid-template-columns:repeat(5,1fr);text-align:center;margin-top:4px;gap:2px}
 .lab5 b{display:block;font-size:11px}
@@ -67,6 +70,8 @@ nav button span{font-size:18px}nav button.on{color:var(--blue)}
   <div class="pane" style="display:grid;gap:10px">
    <div class="lbl" id="wgoalTop"></div>
    <div id="wtodayBar"></div>
+   <!-- Veden päivädiagrammin edistymis- ja osatavoitetekstit omassa kentässä pylvään alla ja näppäinten välissä -->
+   <div class="wstatus" id="wtodayInfo"></div>
    <div class="lbl">Lisää juotu määrä:</div>
    <div class="quick">
     <button data-ml="150">1,5 dl</button>
@@ -230,12 +235,14 @@ function hasDataToBackup() {
          Object.keys(S.weightLogs || {}).length > 0;
 }
 function triggerFileDownload(filename) {
-  const a = document.createElement("a");
-  a.href = "data:application/json;charset=utf-8," + encodeURIComponent(JSON.stringify(S, null, 2));
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  try {
+    const a = document.createElement("a");
+    a.href = "data:application/json;charset=utf-8," + encodeURIComponent(JSON.stringify(S, null, 2));
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch (e) {}
 }
 function checkDailyAutoBackup() {
   if (!isAutoBackupEnabled() || !hasDataToBackup()) {
@@ -272,13 +279,13 @@ function updateAutoBackupUI() {
 const idb = () => new Promise((res, rej) => { const r = indexedDB.open("TerveysDashboardDB", 1); r.onupgradeneeded = () => r.result.createObjectStore("s"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 async function idbPut(v) { try { (await idb()).transaction("s", "readwrite").objectStore("s").put(v, "cur"); } catch (e) {} }
 async function idbGet() { try { const db = await idb(); return await new Promise(res => { const q = db.transaction("s").objectStore("s").get("cur"); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); } catch (e) { return null; } }
-function save() {
+function save(skipAutoBackup = false) {
   S.weightGoals["6m"] = LOCKED_TARGET_WEIGHT;
   const j = JSON.stringify(S);
   try { localStorage.setItem(KEY, j); } catch (e) {}
   idbPut(JSON.parse(j));
   $("saved").textContent = "Tallennettu klo " + new Date().toLocaleTimeString("fi-FI", {hour: "2-digit", minute: "2-digit"});
-  checkDailyAutoBackup();
+  if (!skipAutoBackup) checkDailyAutoBackup();
 }
 function adopt(o) {
   const g = o.weightGoals || {}, f = k => (g[k] === null || g[k] === undefined) ? null : Number(g[k]);
@@ -314,11 +321,13 @@ function seedTestData() {
 async function load() {
   let o = await idbGet();
   if (!o) { try { const s = localStorage.getItem(KEY); if (s) o = JSON.parse(s); } catch (e) {} }
-  if (o) {
+  const hasExisting = o && (Object.keys(o.waterLogs || {}).length > 0 || Object.keys(o.weightLogs || {}).length > 0);
+  if (hasExisting) {
     adopt(o);
   } else {
     S = blank();
-    save();
+    seedTestData();
+    save(true);
   }
 }
 
@@ -595,6 +604,14 @@ function renderWater() {
 
   const pct = Math.min(100, Math.round((td / Math.max(g, 1)) * 100));
 
+  // Päivitetään tekstit pylvään alapuoliseen omaan kenttään
+  if ($("wtodayInfo")) {
+    $("wtodayInfo").innerHTML = `
+      <div class="wstatus-main">Edistyminen: ${todayLitersTxt} (${pct} %)</div>
+      <div class="wstatus-sub" style="color:${subMet ? "var(--ok)" : "var(--amber)"}">Osatavoite (${sub.time}): ${subLitersTxt} (${pctTxt} %)</div>
+    `;
+  }
+
   const anim = !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 
   if ($("wtodayBar")) {
@@ -670,8 +687,6 @@ function renderWater() {
       const tsy = TH - (sub.ml / tMax) * TH;
       ts += `<line x1="0" x2="${TW}" y1="${tsy}" y2="${tsy}" stroke="var(--amber)" stroke-width="2" stroke-dasharray="4 3"/>`;
     }
-    ts += `<text x="${TW / 2}" y="${TH / 2 - 4}" text-anchor="middle" style="font-size:16px;font-weight:900;fill:#ffffff;paint-order:stroke;stroke:rgba(15,23,42,0.65);stroke-width:3px">Edistyminen: ${todayLitersTxt} (${pct} %)</text>`;
-    ts += `<text x="${TW / 2}" y="${TH / 2 + 16}" text-anchor="middle" style="font-size:11px;font-weight:800;fill:#fde68a;paint-order:stroke;stroke:rgba(15,23,42,0.65);stroke-width:2.5px">Osatavoite (${sub.time}): ${subLitersTxt} (${pctTxt} %)</text>`;
     ts += `</g>`;
     $("wtodayBar").innerHTML = `<svg viewBox="0 0 ${TW} ${TH}" style="border-radius:14px">${ts}</svg>`;
   }
@@ -902,17 +917,16 @@ $("imp").onchange = e => {
 };
 $("demo").onclick = () => {
   seedTestData();
-  save();
+  save(true);
   renderAll();
   toast("Testidata ladattu (lukittu tavoite 85,0 kg / 30.5.2027)");
 };
 $("clear").onclick = () => $("confirm").style.display = "grid";
 $("no").onclick = () => $("confirm").style.display = "none";
-$("yes").onclick = () => { $("confirm").style.display = "none"; lastAdd = null; S = blank(); save(); renderAll(); toast("Kaikki tiedot tyhjennetty"); };
+$("yes").onclick = () => { $("confirm").style.display = "none"; lastAdd = null; S = blank(); save(true); renderAll(); toast("Kaikki tiedot tyhjennetty"); };
 
 load().then(() => {
   renderAll();
-  checkDailyAutoBackup();
   setInterval(() => {
     if (tab === "dashboard") renderAll();
   }, 30000);
