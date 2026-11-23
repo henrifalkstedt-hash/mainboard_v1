@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Päivän seuranta – Vesi & Paino</title>
+<style>
+:root{--bg:#eef2f6;--card:#fff;--soft:#f1f5f9;--ink:#1e293b;--mut:#64748b;--line:#cbd5e1;--red:#e53935;--blue:#1e88e5;--teal:#0d9488;--amber:#f59e0b;--ind:#4f46e5;--ok:#059669;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1318;--card:#1b2028;--soft:#252b35;--ink:#e8ecf1;--mut:#9aa4b2;--line:#3a424e;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1318;--card:#1b2028;--soft:#252b35;--ink:#e8ecf1;--mut:#9aa4b2;--line:#3a424e;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+main{max-width:480px;margin:0 auto;padding:14px 12px 96px;display:grid;gap:14px}
+header h1{margin:0;font-size:20px;font-weight:800}
+.sub{font-size:12px;color:var(--mut)}
+.badge{font-size:11px;font-weight:600;color:var(--ok);margin-left:6px}
+.view{display:none;gap:14px}.view.on{display:grid}
+.card{background:var(--card);border-radius:16px;padding:16px;display:grid;gap:12px;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+h2{margin:0;font-size:16px;font-weight:700}
+h3{margin:0;font-size:12px;font-weight:700}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.lbl{font-size:12px;font-weight:600;color:var(--mut)}
+.row{display:flex;gap:8px;align-items:center}
+input{flex:1;min-width:0;height:42px;padding:0 12px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-weight:600}
+button{font:inherit;font-weight:600;border:0;border-radius:12px;height:42px;padding:0 16px;background:var(--blue);color:#fff;cursor:pointer}
+button:active{opacity:.8}
+.b-teal{background:var(--teal)}.b-amber{background:var(--amber)}.b-ind{background:var(--ind)}
+.b-soft{background:var(--soft);color:var(--ink)}.b-red{background:#e11d48}
+.mini{height:auto;padding:4px 8px;font-size:12px;background:none;color:var(--blue)}
+.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.quick button{height:auto;padding:10px 0;background:#e8f1fc;color:#1565c0;display:grid;font-size:15px}
+.quick small{font-size:10px;font-weight:500;opacity:.8}
+.pane{background:var(--soft);border-radius:12px;padding:10px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.lab5{display:grid;grid-template-columns:repeat(5,1fr);text-align:center;margin-top:4px;gap:2px}
+.lab5 b{display:block;font-size:11px}
+svg{width:100%;height:auto;display:block}svg text{fill:var(--mut);font-size:9px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gc{background:var(--soft);border-radius:12px;padding:10px;display:grid;gap:3px;font-size:11px;color:var(--mut)}
+.gc b{font-size:15px;color:var(--ink)}
+.item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.list{max-height:50vh;overflow-y:auto}
+.seg{display:flex;background:var(--soft);border-radius:12px;padding:3px}
+.seg button{height:32px;padding:0 12px;background:none;color:var(--mut);font-size:12px}
+.seg button.on{background:var(--card);color:var(--ink)}
+.R{color:var(--red)}.B{color:var(--blue)}
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
+nav div{max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+nav button{height:58px;background:none;color:var(--mut);border-radius:0;display:grid;gap:2px;font-size:11px;padding:0}
+nav button span{font-size:18px}nav button.on{color:var(--blue)}
+#toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#0f172a;color:#fff;font-size:12px;font-weight:600;padding:8px 16px;border-radius:99px;display:none;z-index:9}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<header><h1 id="title">Päivän seuranta</h1><span class="sub" id="date"></span><span class="badge" id="saved"></span></header>
+
+<div class="view on" id="v-dashboard">
+ <section class="card">
+  <div class="top">
+   <div><h2>💧 Veden juonti</h2><div id="st" style="font-size:13px;font-weight:700;margin-top:2px"></div></div>
+   <div class="row" style="gap:2px"><button class="mini hide" id="undo">Peruuta</button><button class="mini" id="reset" style="color:var(--mut)">Nollaa päivä</button></div>
+  </div>
+  <div class="pane" style="display:grid;gap:10px">
+   <div class="top">
+    <span class="lbl">Kuluvan päivän tilanne</span>
+    <b id="wpct" style="font-size:12px">0 %</b>
+   </div>
+   <div id="wtodayBar"></div>
+   <div class="lbl">Lisää juotu määrä:</div>
+   <div class="quick">
+    <button data-ml="200">2 dl<small>+200 ml</small></button>
+    <button data-ml="330">3,3 dl<small>+330 ml</small></button>
+    <button data-ml="500">5 dl<small>+500 ml</small></button>
+    <button data-ml="1000">1 l<small>+1000 ml</small></button>
+   </div>
+  </div>
+  <div class="pane"><h3>5 edellistä päivää</h3><div id="wchart"></div><div class="lab5" id="wlab"></div></div>
+  <div class="pane" style="display:grid;gap:6px">
+   <div class="top"><div><h3>Kuukauden trendi</h3><div class="sub">Edellisen 30 vrk vedenjuonti</div></div><span class="sub" id="wmAvg" style="font-weight:700"></span></div>
+   <div id="wchartMonth"></div>
+   <div class="top"><span class="sub" id="wmMin"></span><span class="sub" id="wmMax"></span></div>
+   <p id="wmAnalysis" class="sub" style="margin:4px 0 0;line-height:1.45;color:var(--ink)"></p>
+  </div>
+ </section>
+
+ <section class="card">
+  <div class="top">
+   <div>
+    <h2>⚖️ Painon seuranta</h2>
+    <div class="sub">🔒 Päätavoite: <b>85,0 kg</b> (30.5.2027) · tahti 133 g / 3 pv (1,67 %)</div>
+   </div>
+   <span class="sub" id="latest"></span>
+  </div>
+  <div class="lbl">Tämän päivän paino (kg):</div>
+  <div class="row"><input id="kg" type="text" inputmode="decimal" placeholder="esim. 92,5"><button class="b-teal" id="saveKg">Tallenna</button></div>
+
+  <div class="g2" id="dgoals"></div>
+
+  <div class="pane" style="background:linear-gradient(160deg,#0f1622,#1a2436);border:1px solid rgba(255,255,255,.07);padding:14px;border-radius:18px;box-shadow:0 8px 20px rgba(0,0,0,.22)">
+   <div class="top">
+    <div>
+     <h3 style="color:#f8fafc">Kuluva päivä & 3 edellistä päivää</h3>
+     <div class="sub" style="color:#94a3b8">Päiväkohtainen paino pystypalkkeina (kg)</div>
+    </div>
+    <span style="font-size:12px;font-weight:700" id="d4"></span>
+   </div>
+   <div id="w4" style="margin-top:6px"></div>
+  </div>
+
+  <div class="pane">
+   <div class="top">
+    <div>
+     <h3>Edellinen kuukausi (3 pv keskiarvot)</h3>
+     <div class="sub">Jokainen palkki on 3 päivän keskiarvo suhteessa tavoitteeseen</div>
+    </div>
+    <span style="font-size:12px;font-weight:700" id="d1m"></span>
+   </div>
+   <div id="w1m"></div>
+   <div class="top"><span class="sub" id="mn1m"></span><span style="font-size:12px;font-weight:700" id="mx1m"></span></div>
+  </div>
+ </section>
+</div>
+
+<div class="view" id="v-goals">
+ <section class="card">
+  <h2>💧 Vedenjuontitavoite</h2>
+  <div class="lbl">Päivittäinen tavoite litroina (l):</div>
+  <div class="row"><input id="goal" type="text" inputmode="decimal" placeholder="esim. 2,5"><button id="setGoal">Aseta</button></div>
+  <div class="sub" id="wgcur"></div>
+ </section>
+ <section class="card">
+  <div class="top"><h2>🔒 Lukittu painotavoite</h2><span class="sub" id="gcur"></span></div>
+  <div class="pane" style="display:grid;gap:8px">
+   <div class="top">
+    <b style="font-size:13px">Päätavoite: 85,0 kg · 30.5.2027 mennessä</b>
+    <span style="font-size:11px;font-weight:700;color:var(--blue)">LUKITTU</span>
+   </div>
+   <div class="sub" id="lockedPlanInfo" style="line-height:1.45;color:var(--ink)"></div>
+  </div>
+ </section>
+</div>
+
+<div class="view" id="v-history">
+ <section class="card">
+  <div class="top"><h2>📋 Tallennetut merkinnät</h2>
+   <div class="seg"><button class="on" id="hw">Paino</button><button id="hv">Vesi</button></div></div>
+  <div class="pane" style="display:grid;gap:8px">
+   <div class="lbl" id="htitle">Lisää tai muokkaa painomerkintää:</div>
+   <div class="row"><input id="hdate" type="date"><input id="hval" type="text" inputmode="decimal"><button id="hsave">Tallenna</button></div>
+  </div>
+  <div class="list" id="hlist"></div>
+ </section>
+</div>
+
+<div class="view" id="v-settings">
+ <section class="card">
+  <h2>💾 Varmuuskopiointi laitteelle</h2>
+  <p class="sub" style="margin:0">Tiedot tallennetaan automaattisesti selaimen muistiin (localStorage + IndexedDB). Lisäksi sovellus tallentaa automaattisesti JSON-varmuuskopion laitteen Lataukset-kansioon kerran päivässä.</p>
+  <div class="pane" style="display:grid;gap:6px">
+   <div class="top" style="align-items:center">
+    <b style="font-size:13px">Automaattinen päivittäinen varmuuskopio</b>
+    <button class="mini" id="toggleAutoBackup">Käytössä</button>
+   </div>
+   <div class="sub" id="autoBackupStatus">Tarkistetaan tilaa...</div>
+  </div>
+  <button id="exp">Lataa varmuuskopio nyt (.json)</button>
+  <button class="b-soft" id="impb">Palauta varmuuskopio</button>
+  <input id="imp" type="file" accept=".json,application/json" class="hide">
+ </section>
+ <section class="card">
+  <h2>Tietokannan hallinta</h2>
+  <div class="cols"><button class="b-soft" id="demo">Lataa esimerkkidata</button><button class="b-soft" id="clear" style="color:#e11d48">Tyhjennä kaikki</button></div>
+  <div class="pane hide" id="confirm" style="display:none;gap:8px"><b style="font-size:13px">Poistetaanko kaikki tiedot pysyvästi?</b>
+   <div class="row" style="justify-content:flex-end"><button class="b-soft" id="no">Peruuta</button><button class="b-red" id="yes">Kyllä, tyhjennä</button></div></div>
+ </section>
+</div>
+</main>
+
+<nav><div>
+ <button data-tab="dashboard" class="on"><span>🏠</span>Dashboard</button>
+ <button data-tab="goals"><span>🎯</span>Tavoitteet</button>
+ <button data-tab="history"><span>📋</span>Historia</button>
+ <button data-tab="settings"><span>⚙️</span>Asetukset</button>
+</div></nav>
+<div id="toast"></div>
+
+<script>
+const $ = i => document.getElementById(i);
+const KEY = "health_dashboard_v1";
+const AUTO_BACKUP_KEY = "health_dashboard_last_auto_backup";
+const AUTO_BACKUP_ENABLED_KEY = "health_dashboard_auto_backup_enabled";
+
+// Lukittu painotavoite: 85,0 kg 30.5.2027 mennessä, tahti keskimäärin 133 g / 3 pv (1,67 %)
+const LOCKED_TARGET_WEIGHT = 85.0;
+const LOCKED_TARGET_DATE = "2027-05-30";
+const LOSS_PER_3_DAYS = 0.133; // 133 g = 0,133 kg / 3 pv (1,67 % pudotus)
+const LOSS_PER_DAY = LOSS_PER_3_DAYS / 3;
+
+const blank = () => ({
+  waterGoal: 2500,
+  waterLogs: {},
+  weightLogs: {},
+  weightGoals: {"6m": LOCKED_TARGET_WEIGHT, "1m": null, "2w": null},
+  autoW: true,
+  plan: null,
+  dayGoals: {}
+});
+
+let S = blank(), lastAdd = null, tab = "dashboard", hTab = "weight";
+const pad = n => String(n).padStart(2, "0");
+const fd = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const dk = (o = 0) => { const d = new Date(); d.setDate(d.getDate() + o); return fd(d); };
+const n1 = v => v.toFixed(1).replace(".", ",");
+const n2 = v => v.toFixed(2).replace(".", ",");
+const pf = s => parseFloat(String(s).trim().replace(",", "."));
+const dd = (a, b) => Math.round((new Date(b + "T00:00") - new Date(a + "T00:00")) / 864e5);
+const addD = (k, n) => { const d = new Date(k + "T00:00"); d.setDate(d.getDate() + n); return fd(d); };
+const fdisp = k => Number(k.slice(8)) + "." + Number(k.slice(5, 7)) + "." + k.slice(0, 4);
+
+function toast(m) { const t = $("toast"); t.textContent = m; t.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = "none", 2400); }
+
+// ---- Päivittäinen automaattinen varmuuskopiointi laitteelle ----
+function isAutoBackupEnabled() {
+  try { return localStorage.getItem(AUTO_BACKUP_ENABLED_KEY) !== "false"; } catch (e) { return true; }
+}
+function hasDataToBackup() {
+  return Object.keys(S.waterLogs || {}).length > 0 ||
+         Object.keys(S.weightLogs || {}).length > 0;
+}
+function triggerFileDownload(filename) {
+  const a = document.createElement("a");
+  a.href = "data:application/json;charset=utf-8," + encodeURIComponent(JSON.stringify(S, null, 2));
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+function checkDailyAutoBackup() {
+  if (!isAutoBackupEnabled() || !hasDataToBackup()) {
+    updateAutoBackupUI();
+    return;
+  }
+  const today = dk(0);
+  let lastDate = "";
+  try { lastDate = localStorage.getItem(AUTO_BACKUP_KEY) || ""; } catch (e) {}
+  if (lastDate !== today) {
+    try {
+      triggerFileDownload("terveysdashboard_varmuuskopio_" + today + ".json");
+      localStorage.setItem(AUTO_BACKUP_KEY, today);
+      toast("Päivittäinen varmuuskopio tallennettu laitteelle");
+    } catch (e) {}
+  }
+  updateAutoBackupUI();
+}
+function updateAutoBackupUI() {
+  const btn = $("toggleAutoBackup");
+  const st = $("autoBackupStatus");
+  if (!btn || !st) return;
+  const enabled = isAutoBackupEnabled();
+  btn.textContent = enabled ? "Käytössä ✓" : "Pois päältä";
+  btn.style.color = enabled ? "var(--ok)" : "var(--mut)";
+  let lastDate = "";
+  try { lastDate = localStorage.getItem(AUTO_BACKUP_KEY) || ""; } catch (e) {}
+  st.textContent = lastDate
+    ? `Viimeisin automaattinen varmuuskopio: ${fdisp(lastDate)} (1 krt / päivä)`
+    : "Ei vielä automaattista varmuuskopiota (luodaan automaattisesti, kun merkintöjä on tallennettu)";
+}
+
+// ---- tallennus: localStorage + IndexedDB ----
+const idb = () => new Promise((res, rej) => { const r = indexedDB.open("TerveysDashboardDB", 1); r.onupgradeneeded = () => r.result.createObjectStore("s"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+async function idbPut(v) { try { (await idb()).transaction("s", "readwrite").objectStore("s").put(v, "cur"); } catch (e) {} }
+async function idbGet() { try { const db = await idb(); return await new Promise(res => { const q = db.transaction("s").objectStore("s").get("cur"); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); } catch (e) { return null; } }
+function save() {
+  S.weightGoals["6m"] = LOCKED_TARGET_WEIGHT;
+  const j = JSON.stringify(S);
+  try { localStorage.setItem(KEY, j); } catch (e) {}
+  idbPut(JSON.parse(j));
+  $("saved").textContent = "Tallennettu klo " + new Date().toLocaleTimeString("fi-FI", {hour: "2-digit", minute: "2-digit"});
+  checkDailyAutoBackup();
+}
+function adopt(o) {
+  const g = o.weightGoals || {}, f = k => (g[k] === null || g[k] === undefined) ? null : Number(g[k]);
+  S = {
+    waterGoal: Number(o.waterGoal) || 2500,
+    waterLogs: o.waterLogs || {},
+    weightLogs: o.weightLogs || {},
+    weightGoals: {"6m": LOCKED_TARGET_WEIGHT, "1m": f("1m"), "2w": f("2w")},
+    autoW: true,
+    plan: o.plan || null,
+    dayGoals: o.dayGoals || {}
+  };
+}
+function seedTestData() {
+  S.waterGoal = 2500;
+  S.waterLogs = {};
+  for (let i = 0; i < 30; i++) {
+    S.waterLogs[dk(-i)] = i === 0 ? 1850 : (i % 3 === 0 ? 2100 : 2650);
+  }
+  S.weightLogs = {};
+  const currentDemoWeight = 93.0;
+  const wave = [0.1, -0.1, 0.2, 0.0, -0.2, 0.1, 0.3, -0.1, 0.0, -0.2, 0.1, 0.0];
+  for (let d = 32; d >= 0; d--) {
+    const base = currentDemoWeight + d * LOSS_PER_DAY;
+    const fluc = d === 0 ? 0 : wave[d % wave.length];
+    S.weightLogs[dk(-d)] = Math.round((base + fluc) * 10) / 10;
+  }
+  S.weightGoals = {"6m": LOCKED_TARGET_WEIGHT, "1m": null, "2w": null};
+  S.plan = {s: dk(-32), e: LOCKED_TARGET_DATE, dir: -1, sw: S.weightLogs[dk(-32)]};
+  S.dayGoals = {};
+  S.autoW = true;
+}
+async function load() {
+  let o = await idbGet();
+  if (!o) { try { const s = localStorage.getItem(KEY); if (s) o = JSON.parse(s); } catch (e) {} }
+  if (o) {
+    adopt(o);
+  } else {
+    S = blank();
+    save();
+  }
+}
+
+// ---- paino & lukittu tavoitemalli (85,0 kg 30.5.2027 mennessä) ----
+const wAll = () => Object.entries(S.weightLogs).map(([k, v]) => ({k, w: Number(v)})).sort((a, b) => a.k.localeCompare(b.k));
+const latestEntry = () => { const a = wAll(); return a.length ? a[a.length - 1] : null; };
+const latest = () => { const e = latestEntry(); return e ? e.w : null; };
+
+function targetAtDate(dateKey) {
+  const daysToEnd = Math.max(0, dd(dateKey, LOCKED_TARGET_DATE));
+  const theoreticalFromEnd = LOCKED_TARGET_WEIGHT + daysToEnd * LOSS_PER_DAY;
+  const all = wAll();
+  if (!all.length) return theoreticalFromEnd;
+
+  const first = all[0];
+  const last = all[all.length - 1];
+  if (dateKey <= last.k) {
+    const spanDays = Math.max(1, dd(first.k, LOCKED_TARGET_DATE));
+    const totalDrop = first.w - LOCKED_TARGET_WEIGHT;
+    if (totalDrop > 0) {
+      const elapsed = Math.max(0, dd(first.k, dateKey));
+      return Math.max(LOCKED_TARGET_WEIGHT, first.w - (totalDrop * elapsed / spanDays));
+    }
+    return theoreticalFromEnd;
+  } else {
+    const remDays = Math.max(1, dd(last.k, LOCKED_TARGET_DATE));
+    const remDrop = Math.max(0, last.w - LOCKED_TARGET_WEIGHT);
+    const futureElapsed = dd(last.k, dateKey);
+    return Math.max(LOCKED_TARGET_WEIGHT, last.w - (remDrop * futureElapsed / remDays));
+  }
+}
+
+function getLockedMilestones() {
+  const cur = latest();
+  const todayK = dk(0);
+  const now = new Date();
+  const endOfMonthD = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const endOfMonthK = fd(endOfMonthD);
+  const next3DaysK = addD(todayK, 3);
+
+  const monthTarget = cur !== null ? targetAtDate(endOfMonthK) : null;
+  const next3Target = cur !== null ? Math.max(LOCKED_TARGET_WEIGHT, cur - LOSS_PER_3_DAYS) : null;
+
+  return {
+    cur,
+    endOfMonthK,
+    endOfMonthLabel: `${endOfMonthD.getDate()}.${endOfMonthD.getMonth() + 1}.`,
+    monthTarget,
+    next3DaysK,
+    next3DaysLabel: `${Number(next3DaysK.slice(8))}.${Number(next3DaysK.slice(5, 7))}.`,
+    next3Target
+  };
+}
+
+function goalStatus(t, cur) {
+  if (t === null || isNaN(t)) return {s: "Kirjaa paino", c: "var(--mut)", ok: false};
+  if (cur === null) return {s: "Kirjaa paino", c: "var(--mut)", ok: false};
+  const d = cur - t;
+  return d <= 0.05 ? {s: "Tavoitteessa!", c: "var(--ok)", ok: true} : {s: "Matkaa -" + n2(d) + " kg", c: "var(--amber)", ok: false};
+}
+
+function wchart4CurrentAndPrev3() {
+  const days = [3, 2, 1, 0].map(o => {
+    const k = dk(-o);
+    return {
+      k,
+      isToday: o === 0,
+      w: S.weightLogs[k] != null ? Number(S.weightLogs[k]) : null
+    };
+  });
+  const p = days.filter(e => e.w !== null);
+  const box = $("w4"), dl = $("d4");
+  if (!p.length) {
+    box.innerHTML = '<svg viewBox="0 0 300 124" style="border-radius:14px;background:rgba(15,23,42,.55)"><text x="150" y="62" text-anchor="middle" style="fill:#94a3b8">Ei painomerkintöjä kuluvalla tai 3 edellisellä päivällä</text></svg>';
+    dl.textContent = "";
+    return;
+  }
+  const minVal = Math.min(...p.map(e => e.w));
+  const maxVal = Math.max(...p.map(e => e.w));
+  const lo = minVal - 0.8, hi = maxVal + 0.6;
+  const W = 300, H = 124, padL = 32, padR = 10, padT = 18, padB = 22;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const Y = w => padT + plotH - plotH * (w - lo) / (hi - lo);
+
+  let s = `<defs>
+    <linearGradient id="w4Blue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.92"/>
+    </linearGradient>
+    <linearGradient id="w4Today" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2dd4bf"/>
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0.95"/>
+    </linearGradient>
+    <filter id="w4Glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <rect x="0" y="0" width="${W}" height="${H}" rx="14" fill="rgba(10,15,26,0.62)"/>`;
+
+  [0, 0.5, 1].forEach(r => {
+    const gv = lo + (hi - lo) * r;
+    s += `<line x1="${padL}" x2="${W - padR}" y1="${Y(gv)}" y2="${Y(gv)}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
+    s += `<text x="${padL - 6}" y="${Y(gv) + 2.5}" text-anchor="end" style="font-size:7.5px;fill:#64748b;font-weight:600">${n1(gv)}</text>`;
+  });
+
+  const slot = plotW / 4, bw = Math.max(slot - 12, 22);
+  days.forEach((e, i) => {
+    const cx = padL + i * slot + slot / 2;
+    const lbl = e.isToday ? "Tänään" : `${Number(e.k.slice(8))}.${Number(e.k.slice(5, 7))}.`;
+    if (e.w !== null) {
+      const y = Y(e.w);
+      const barH = Math.max(padT + plotH - y, 10);
+      const x = cx - bw / 2;
+      const fillId = e.isToday ? "url(#w4Today)" : "url(#w4Blue)";
+      s += `<rect x="${x}" y="${y}" width="${bw}" height="${barH}" rx="7" fill="${fillId}" filter="url(#w4Glow)"/>`;
+      s += `<rect x="${x + 0.6}" y="${y + 0.6}" width="${bw - 1.2}" height="${Math.max(barH - 1.2, 4)}" rx="6.4" fill="none" stroke="#7dd3fc" stroke-opacity="0.38" stroke-width="1"/>`;
+      s += `<text x="${cx}" y="${y - 5}" text-anchor="middle" style="font-size:8px;font-weight:800;fill:#f8fafc">${n1(e.w)} kg</text>`;
+    } else {
+      s += `<text x="${cx}" y="${padT + plotH - 8}" text-anchor="middle" style="font-size:8px;fill:#475569">—</text>`;
+    }
+    s += `<text x="${cx}" y="${H - 6}" text-anchor="middle" style="font-size:7.5px;font-weight:${e.isToday ? "800" : "600"};fill:${e.isToday ? "#38bdf8" : "#94a3b8"}">${lbl}</text>`;
+  });
+
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="border-radius:14px">${s}</svg>`;
+  if (p.length >= 2) {
+    const d = p[p.length - 1].w - p[0].w;
+    dl.textContent = (d > 0 ? "+" : "") + n2(d) + " kg";
+    dl.style.color = d <= 0 ? "#2dd4bf" : "#f87171";
+  } else dl.textContent = "";
+}
+
+function wchart1m3DayAverages() {
+  const box = $("w1m"), mn = $("mn1m"), mx = $("mx1m"), dl = $("d1m");
+  const buckets = [];
+  for (let startOff = 29; startOff >= 2; startOff -= 3) {
+    const vals = [];
+    for (let dOff = startOff; dOff >= startOff - 2; dOff--) {
+      const k = dk(-dOff);
+      if (S.weightLogs[k] != null) vals.push(Number(S.weightLogs[k]));
+    }
+    const endK = dk(-(startOff - 2));
+    const midK = dk(-(startOff - 1));
+    const avgW = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    const targetW = targetAtDate(midK);
+    buckets.push({
+      endK,
+      lbl: `${Number(endK.slice(8))}.${Number(endK.slice(5, 7))}.`,
+      avgW,
+      targetW,
+      count: vals.length
+    });
+  }
+
+  const valid = buckets.filter(b => b.avgW !== null);
+  if (!valid.length) {
+    box.innerHTML = '<svg viewBox="0 0 300 124"><text x="150" y="62" text-anchor="middle">Ei merkintöjä edelliseltä kuukaudelta</text></svg>';
+    mn.textContent = mx.textContent = dl.textContent = "";
+    return;
+  }
+
+  const minVal = Math.min(...valid.map(b => b.avgW));
+  const maxVal = Math.max(...valid.map(b => b.avgW));
+  const lo = minVal - 0.7, hi = maxVal + 0.6;
+  const W = 300, H = 124, padL = 30, padR = 6, padT = 16, padB = 20;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const Y = w => padT + plotH - plotH * (w - lo) / (hi - lo);
+
+  let s = "";
+  [0, 0.5, 1].forEach(r => {
+    const gv = lo + (hi - lo) * r;
+    s += `<line x1="${padL}" x2="${W - padR}" y1="${Y(gv)}" y2="${Y(gv)}" stroke="var(--line)" stroke-width="1" stroke-dasharray="${r === 0 ? "" : "2 4"}"/>`;
+    s += `<text x="${padL - 4}" y="${Y(gv) + 2.5}" text-anchor="end" style="font-size:7.5px">${n1(gv)}</text>`;
+  });
+
+  const slot = plotW / buckets.length, bw = Math.max(slot - 4, 10);
+  buckets.forEach((b, i) => {
+    const cx = padL + i * slot + slot / 2;
+    if (b.avgW !== null) {
+      const y = Y(b.avgW);
+      const barH = Math.max(padT + plotH - y, 4);
+      const x = cx - bw / 2;
+      const isOk = b.avgW <= b.targetW + 0.05;
+      const col = isOk ? "var(--ok)" : "var(--red)";
+      s += `<rect x="${x}" y="${y}" width="${bw}" height="${barH}" rx="4" fill="${col}"/>`;
+      s += `<text x="${cx}" y="${y - 3}" text-anchor="middle" style="font-size:6.8px;font-weight:800;fill:var(--ink)">${n1(b.avgW)}</text>`;
+    }
+    if (i % 2 === 0 || i === buckets.length - 1) {
+      s += `<text x="${cx}" y="${H - 5}" text-anchor="middle" style="font-size:7px">${b.lbl}</text>`;
+    }
+  });
+
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${s}</svg>`;
+  mn.textContent = "vihreä = 3 pv ka tavoitteessa · punainen = yli";
+  mx.textContent = "3 pv keskiarvot (30 vrk)";
+  if (valid.length >= 2) {
+    const diff = valid[valid.length - 1].avgW - valid[0].avgW;
+    dl.textContent = (diff > 0 ? "+" : "") + n2(diff) + " kg";
+    dl.style.color = diff <= 0 ? "var(--ok)" : "var(--red)";
+  } else dl.textContent = "";
+}
+
+function renderWeight() {
+  const m = getLockedMilestones();
+  $("latest").textContent = m.cur !== null ? "Viimeisin: " + n1(m.cur) + " kg" : "Ei merkintöjä";
+
+  const stMonth = goalStatus(m.monthTarget, m.cur);
+
+  $("dgoals").innerHTML = `
+    <div class="gc" style="border:1px solid var(--teal)">
+      <span>Kuluvan kk tavoite (${m.endOfMonthLabel})</span>
+      <b>${m.monthTarget !== null ? n1(m.monthTarget) + " kg" : "—"}</b>
+      <span style="color:${stMonth.c};font-weight:700">${m.cur !== null ? (m.cur - m.monthTarget <= 0.05 ? "Tavoitteessa!" : "Pudotettavaa -" + n2(m.cur - m.monthTarget) + " kg") : "Kirjaa paino"}</span>
+    </div>
+    <div class="gc" style="border:1px solid var(--blue)">
+      <span>Seuraavan 3 pv tavoite (${m.next3DaysLabel})</span>
+      <b>${m.next3Target !== null ? n2(m.next3Target) + " kg" : "—"}</b>
+      <span style="color:var(--blue);font-weight:700">${m.cur !== null ? "-133 g / 3 pv (1,67 %)" : "Kirjaa paino"}</span>
+    </div>
+  `;
+
+  wchart4CurrentAndPrev3();
+  wchart1m3DayAverages();
+}
+
+function renderGoals() {
+  $("goal").value = n1(S.waterGoal / 1000);
+  $("wgcur").textContent = "Nykyinen: " + n1(S.waterGoal / 1000) + " l";
+  const m = getLockedMilestones();
+  $("gcur").textContent = "Nykyinen: " + (m.cur !== null ? n1(m.cur) + " kg" : "ei kirjattu");
+  const remDays = Math.max(0, dd(dk(0), LOCKED_TARGET_DATE));
+  const remKg = m.cur !== null ? Math.max(0, m.cur - LOCKED_TARGET_WEIGHT) : null;
+  $("lockedPlanInfo").innerHTML =
+    `Painotavoite on lukittu tasolle <b>85,0 kg</b> päivämäärään <b>30.5.2027</b> (${remDays} päivää jäljellä). ` +
+    `Keskimääräinen pudotustahti on <b>133 g / 3 pv (1,67 %)</b>. ` +
+    (remKg !== null
+      ? `Nykyisestä painosta (${n1(m.cur)} kg) kokonaispudotusta on jäljellä <b>${n1(remKg)} kg</b>. Kuluvan kuukauden tavoite (${m.endOfMonthLabel}) on <b>${n1(m.monthTarget)} kg</b> ja seuraavan 3 päivän tavoite (${m.next3DaysLabel}) on <b>${n2(m.next3Target)} kg</b>.`
+      : `Kirjaa tämän päivän paino Dashboardissa nähdäksesi ajantasaiset välipudotustavoitteet.`);
+}
+
+// Vedenjuonnin päiväosatavoitteet: joka tasatunti klo 08:00 alkaen (+6,6 % / tunti) ja klo 22:00 loppumäärä (100 %)
+function waterSubGoal(g) {
+  const now = new Date();
+  const h = now.getHours();
+  if (h < 8) {
+    return { ml: 0, pct: 0, time: "klo 08:00" };
+  }
+  if (h >= 22) {
+    return { ml: g, pct: 100, time: "klo 22:00" };
+  }
+  // klo 08:00 = 6,6 %, klo 09:00 = 13,2 %, ..., klo 21:00 = 92,4 %
+  const step = h - 7;
+  const pct = Math.round(step * 6.6 * 10) / 10;
+  return {
+    ml: Math.round(g * (pct / 100)),
+    pct,
+    time: `klo ${pad(h)}:00`
+  };
+}
+function renderWater() {
+  const g = S.waterGoal, td = S.waterLogs[dk(0)] || 0;
+  const sub = waterSubGoal(g);
+  const fullMet = td >= g;
+  const subMet = td >= sub.ml;
+  const statusCol = fullMet ? "var(--ok)" : (subMet ? "var(--blue)" : "var(--red)");
+  const pctTxt = sub.pct % 1 === 0 ? `${sub.pct}` : n1(sub.pct);
+
+  $("st").innerHTML = `Tänään: ${td} / ${g} ml <span class="sub" style="font-weight:600">(tavoite ${sub.time}: ${pctTxt} % / ${sub.ml} ml)</span>`;
+  $("st").style.color = statusCol;
+  $("undo").classList.toggle("hide", !(lastAdd && lastAdd.ml > 0));
+
+  const pct = Math.min(100, Math.round((td / Math.max(g, 1)) * 100));
+  if ($("wpct")) {
+    $("wpct").textContent = `${pct} % / tavoite ${pctTxt} % (${sub.time})`;
+    $("wpct").style.color = statusCol;
+  }
+
+  const anim = !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+  if ($("wtodayBar")) {
+    const TW = 300, TH = 136;
+    const tMax = Math.max(g, td, 500) * 1.12;
+    const th = Math.max((td / tMax) * TH, 12);
+    const ty = TH - th;
+    let ts = `<defs>
+      <linearGradient id="tdLava" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0%" stop-color="#3b0202"/><stop offset="40%" stop-color="#b71c1c"/>
+        <stop offset="78%" stop-color="#ff3d00"/><stop offset="100%" stop-color="#ffca28"/>
+      </linearGradient>
+      <linearGradient id="tdCrest" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#fff59d" stop-opacity="0.98"/><stop offset="100%" stop-color="#ff6d00" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="tdWater" x1="0" y1="1" x2="0" y2="0">
+        <stop offset="0%" stop-color="#083366"/><stop offset="50%" stop-color="#0284c7"/><stop offset="100%" stop-color="#38bdf8"/>
+      </linearGradient>
+      <filter id="tdGlow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="4.5"/>
+      </filter>
+      <clipPath id="tdClip"><rect x="0" y="0" width="${TW}" height="${TH}" rx="14"/></clipPath>
+    </defs>`;
+    ts += `<rect x="0" y="0" width="${TW}" height="${TH}" rx="14" fill="rgba(15,23,42,0.14)"/>`;
+    ts += `<g clip-path="url(#tdClip)">`;
+    if (!subMet) {
+      ts += `<rect x="0" y="${ty}" width="${TW}" height="${th}" fill="#ff3d00" opacity="0.55" filter="url(#tdGlow)"/>`;
+      ts += `<rect x="0" y="${ty}" width="${TW}" height="${th}" fill="url(#tdLava)"/>`;
+      const lp = 50, lx0 = -lp * 2, ln = 10;
+      const lwave = yy => { let p = `M${lx0} ${yy}`; for (let k = 0; k < ln; k++) p += ` q${lp / 4} -4.2 ${lp / 2} 0 t${lp / 2} 0`; return p + ` V${TH + 10} H${lx0} Z`; };
+      const lmv = (from, to, dur) => anim ? `<animateTransform attributeName="transform" type="translate" from="${from} 0" to="${to} 0" dur="${dur}s" repeatCount="indefinite"/>` : "";
+      ts += `<path d="${lwave(ty + 1)}" fill="#ff9100" opacity="0.6">${lmv(lp, 0, 2.8)}</path>`;
+      ts += `<path d="${lwave(ty + 3)}" fill="url(#tdLava)">${lmv(0, lp, 2.1)}</path>`;
+      ts += `<rect x="0" y="${ty}" width="${TW}" height="${Math.min(th, 14)}" fill="url(#tdCrest)" opacity="0.9">${anim ? `<animate attributeName="opacity" values="0.6;1;0.6" dur="1.8s" repeatCount="indefinite"/>` : ""}</rect>`;
+      for (let b = 0; b < 8; b++) {
+        const bx = 18 + b * 36, br = 1.6 + (b % 3) * 0.7, bdur = (2.2 + (b % 4) * 0.6).toFixed(1), bbeg = (b * 0.35).toFixed(1);
+        ts += `<circle cx="${bx}" cy="${TH - 3}" r="${br}" fill="#ffe082" opacity="${anim ? 0 : 0.7}">${anim ? `<animate attributeName="cy" values="${TH - 3};${ty + 4}" dur="${bdur}s" begin="${bbeg}s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;0.9;0" dur="${bdur}s" begin="${bbeg}s" repeatCount="indefinite"/>` : ""}</circle>`;
+      }
+      for (let f = 0; f < 9; f++) {
+        const fx = 20 + f * 32, fk = [1.2, 1.6, 1.1, 1.4][f % 4], fd = (0.85 + (f % 3) * 0.2).toFixed(2), fb = (-(f * 0.31)).toFixed(2);
+        ts += `<g transform="translate(${fx} ${ty + 3}) scale(${fk})"><g>${anim ? `<animateTransform attributeName="transform" type="scale" values="1 1;0.82 1.38;1.12 0.84;0.9 1.18;1 1" dur="${fd}s" begin="${fb}s" repeatCount="indefinite"/>` : ""}<path d="M-3.5 0C-5-4.5-1.2-6.8 0-12.5C1.2-7.8 5-5.5 3.5 0Z" fill="#ff5a00" opacity="0.95"/><path d="M-1.8 0C-2.5-2.8-0.5-4.2 0-7.5C0.7-4.5 2.5-3.4 1.8 0Z" fill="#fff176"/></g></g>`;
+      }
+    } else {
+      const a = 4.2, P = 60, x0 = -P * 2, n = 9;
+      const wave = yy => { let p = `M${x0} ${yy}`; for (let k = 0; k < n; k++) p += ` q${P / 4} ${-a} ${P / 2} 0 t${P / 2} 0`; return p + ` V${TH + 10} H${x0} Z`; };
+      const mv = (from, to, dur) => anim ? `<animateTransform attributeName="transform" type="translate" from="${from} 0" to="${to} 0" dur="${dur}s" repeatCount="indefinite"/>` : "";
+      ts += `<rect x="0" y="${ty}" width="${TW}" height="${th}" fill="#38bdf8" opacity="0.45" filter="url(#tdGlow)"/>`;
+      ts += `<rect x="0" y="${ty + 3}" width="${TW}" height="${th}" fill="url(#tdWater)"/>`;
+      ts += `<path d="${wave(ty + 1.5)}" fill="#bae6fd" opacity="0.65">${mv(P, 0, 2.9)}</path>`;
+      ts += `<path d="${wave(ty + a + 0.5)}" fill="url(#tdWater)">${mv(0, P, 2.1)}</path>`;
+      for (let b = 0; b < 6; b++) {
+        const bx = 25 + b * 48, br = 1.6 + (b % 2) * 0.7, bdur = (2.8 + b * 0.4).toFixed(1), bbeg = (b * 0.4).toFixed(1);
+        ts += `<circle cx="${bx}" cy="${TH - 3}" r="${br}" fill="#e0f2fe" opacity="${anim ? 0 : 0.6}">${anim ? `<animate attributeName="cy" values="${TH - 3};${ty + 6}" dur="${bdur}s" begin="${bbeg}s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;0.85;0" dur="${bdur}s" begin="${bbeg}s" repeatCount="indefinite"/>` : ""}</circle>`;
+      }
+      if (th > 28) {
+        const sc = fullMet ? 1.8 : 1.55;
+        const fy = Math.min(ty + 34, TH - 16);
+        const xa = 34, xb = TW - 34;
+        const dur = "17.0", ph = "-1.2";
+        const hScale = fullMet ? 3.5 : 3.1;
+        const bigHeart = (dx, bg, hsc) => `<g transform="translate(${dx} 0)"><g${anim ? ' opacity="0"' : ' transform="translate(0 -16)"'}>${anim ? `<animateTransform attributeName="transform" type="translate" values="0 -10;0 -32" dur="2.8s" begin="${bg}s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" dur="2.8s" begin="${bg}s" repeatCount="indefinite"/>` : ""}<path transform="scale(${hsc})" d="M0 1.6C-3-.6-1.6-2.6 0-1.1C1.6-2.6 3-.6 0 1.6Z" fill="#ff2e74"/></g></g>`;
+        ts += `<g${anim ? "" : ` transform="translate(${TW / 2} ${fy}) scale(${sc} ${sc})"`}>`;
+        if (anim) {
+          ts += `<animateTransform attributeName="transform" type="translate" values="${xa} ${fy};${xb} ${fy - 4};${xa} ${fy}" keyTimes="0;0.5;1" dur="${dur}s" begin="${ph}s" repeatCount="indefinite"/>`;
+          ts += `<animateTransform attributeName="transform" type="scale" additive="sum" calcMode="discrete" values="${sc} ${sc};-${sc} ${sc};${sc} ${sc}" keyTimes="0;0.5;1" dur="${dur}s" begin="${ph}s" repeatCount="indefinite"/>`;
+        }
+        ts += `<path d="M-4.5 0L-9.2-3.6V3.6Z" fill="#fb8c00"/><path d="M-1-2.8Q.6-5.4 2.4-2.8Z" fill="#fb8c00"/><ellipse rx="5.6" ry="3.6" fill="#ffa726"/><circle cx="2.8" cy="-1.0" r="1.0" fill="#263238"/><path d="M1.6 1.0Q3.2 2.8 4.8 1.0" fill="none" stroke="#263238" stroke-width="0.8" stroke-linecap="round"/>` + bigHeart(5.2, 0, hScale) + bigHeart(-3.5, 1.3, hScale * 0.85) + `</g>`;
+      }
+    }
+    const tgy = TH - (g / tMax) * TH;
+    ts += `<line x1="0" x2="${TW}" y1="${tgy}" y2="${tgy}" stroke="rgba(255,255,255,0.75)" stroke-width="1.5" stroke-dasharray="5 5"/>`;
+    if (sub.pct > 0 && sub.pct < 100) {
+      const tsy = TH - (sub.ml / tMax) * TH;
+      ts += `<line x1="0" x2="${TW}" y1="${tsy}" y2="${tsy}" stroke="var(--amber)" stroke-width="2" stroke-dasharray="4 3"/>`;
+      ts += `<text x="${TW - 8}" y="${tsy - 4}" text-anchor="end" style="font-size:8.5px;font-weight:800;fill:var(--amber)">${sub.time}: ${pctTxt} % (${sub.ml} ml)</text>`;
+    }
+    ts += `<text x="${TW / 2}" y="${TH / 2 + 2}" text-anchor="middle" style="font-size:17px;font-weight:900;fill:#ffffff;paint-order:stroke;stroke:rgba(15,23,42,0.6);stroke-width:3px">${td} / ${g} ml (${pct} %)</text>`;
+    ts += `<text x="${TW / 2}" y="${TH / 2 + 19}" text-anchor="middle" style="font-size:10.5px;font-weight:800;fill:#fde68a;paint-order:stroke;stroke:rgba(15,23,42,0.6);stroke-width:2.5px">Tavoite ${sub.time}: ${pctTxt} % (${sub.ml} ml)</text>`;
+    ts += `</g>`;
+    $("wtodayBar").innerHTML = `<svg viewBox="0 0 ${TW} ${TH}" style="border-radius:14px">${ts}</svg>`;
+  }
+
+  const days = [5, 4, 3, 2, 1].map(o => {
+    const d = new Date();
+    d.setDate(d.getDate() - o);
+    const ml = S.waterLogs[fd(d)] || 0;
+    const full = ml >= g;
+    return { ml, label: d.getDate() + "." + (d.getMonth() + 1) + ".", col: full ? "#0284c7" : "#e5481f", full };
+  });
+
+  const max = Math.max(g, ...days.map(d => d.ml), 500) * 1.15, H = 150, W = 300, slot = W / 5;
+  let s = `<defs>
+    <linearGradient id="wvLava" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#4a0404"/><stop offset=".45" stop-color="#b71c1c"/><stop offset=".8" stop-color="#ff4e00"/><stop offset="1" stop-color="#ffb300"/></linearGradient>
+    <linearGradient id="wvCrest" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe082" stop-opacity=".95"/><stop offset="1" stop-color="#ff6d00" stop-opacity="0"/></linearGradient>
+    <linearGradient id="wvWater" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#0c4a8a"/><stop offset=".55" stop-color="#0288d1"/><stop offset="1" stop-color="#4fc3f7"/></linearGradient>
+    <filter id="wvGlow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="3"/></filter>
+  </defs>`;
+  days.forEach((d, i) => {
+    const h = Math.max(d.ml / max * H, 6), w = slot - 0.5, x = i * slot + 0.25, y = H - h;
+    s += `<clipPath id="wvC${i}"><rect x="${x}" y="${y - 4}" width="${w}" height="${h + 4}" rx="3"/></clipPath>`;
+    const bubble = (cx, r, dur, bg, fill, top) => `<circle cx="${cx}" cy="${H - 2}" r="${r}" fill="${fill}" opacity="${anim ? 0 : 0.5}">${anim ? `<animate attributeName="cy" values="${H - 2};${top}" dur="${dur}s" begin="${bg}s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;.85;0" dur="${dur}s" begin="${bg}s" repeatCount="indefinite"/>` : ""}</circle>`;
+    if (!d.full) {
+      s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="#ff3d00" opacity="0.45" filter="url(#wvGlow)"/>`;
+      s += `<g clip-path="url(#wvC${i})"><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#wvLava)"/>`;
+      s += `<rect x="${x}" y="${y}" width="${w}" height="${Math.min(h, 10)}" fill="url(#wvCrest)" opacity="0.95">${anim ? `<animate attributeName="opacity" values="0.55;0.95;0.55" dur="2.2s" begin="${(i * 0.3).toFixed(1)}s" repeatCount="indefinite"/>` : ""}</rect>`;
+      for (let b = 0; b < 3; b++) s += bubble(x + w * (0.18 + 0.3 * b), 1.3 + b * 0.45, 2.8 + b * 0.8, (i * 0.4 + b * 1.1).toFixed(1), "#ffd54f", y + 3);
+      s += `</g>`;
+      for (let f = 0; f < 3; f++) {
+        const k = [1, 1.35, 0.9][(f + i) % 3], fx = x + w * (0.2 + 0.3 * f), fd = (0.9 + f * 0.25).toFixed(2), fb = (-(i * 0.37 + f * 0.51)).toFixed(2);
+        s += `<g transform="translate(${fx} ${y + 2}) scale(${k})"><g>${anim ? `<animateTransform attributeName="transform" type="scale" values="1 1;0.85 1.3;1.1 0.85;0.9 1.15;1 1" dur="${fd}s" begin="${fb}s" repeatCount="indefinite"/>` : ""}<path d="M-3 0C-4.2-4-1-6 0-11C1-7 4.2-5 3 0Z" fill="#ff5a00" opacity=".92"/><path d="M-1.6 0C-2.2-2.4-.4-3.6 0-6.4C.6-4 2.2-3 1.6 0Z" fill="#ffd740"/></g></g>`;
+      }
+    } else {
+      const a = 2.6, P = w / 2, x0 = x - P * 2, n = 7;
+      const wave = yy => { let p = `M${x0} ${yy}`; for (let k = 0; k < n; k++) p += ` q${P / 4} ${-a} ${P / 2} 0 t${P / 2} 0`; return p + ` V${H + 10} H${x0} Z`; };
+      const mv = (from, to, dur) => anim ? `<animateTransform attributeName="transform" type="translate" from="${from} 0" to="${to} 0" dur="${dur}s" repeatCount="indefinite"/>` : "";
+      s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="#29b6f6" opacity=".4" filter="url(#wvGlow)"/>`;
+      s += `<g clip-path="url(#wvC${i})"><rect x="${x}" y="${y + 2}" width="${w}" height="${h}" fill="url(#wvWater)"/>`;
+      s += `<path d="${wave(y + 1.5)}" fill="#81d4fa" opacity=".55">${mv(P, 0, 3.2)}</path>`;
+      s += `<path d="${wave(y + a + 0.5)}" fill="url(#wvWater)">${mv(0, P, 2.4)}</path>`;
+      s += `<rect x="${x + 2}" y="${y + 8}" width="2" height="${Math.max(h - 14, 0)}" rx="1" fill="#fff" opacity=".22"/>`;
+      for (let b = 0; b < 2; b++) s += bubble(x + w * (0.3 + 0.35 * b), 1.3 + b * 0.5, 3.4 + b, (i * 0.5 + b * 1.3).toFixed(1), "#e1f5fe", y + 5);
+      if (h > 50) {
+        const fy = Math.min(y + 26 + (i % 3) * 12, y + h - 12), xa = x + 6, xb = x + w - 6, D = (7 + (i % 3) * 1.4).toFixed(1), ph = (-i * 1.7).toFixed(1);
+        const heart = (dx, bg) => `<g transform="translate(${dx} 0)"><g${anim ? ' opacity="0"' : ' transform="translate(0 -13)"'}>${anim ? `<animateTransform attributeName="transform" type="translate" values="0 -9;0 -24" dur="2.4s" begin="${bg}s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" dur="2.4s" begin="${bg}s" repeatCount="indefinite"/>` : ""}<path transform="scale(2.1)" d="M0 1.6C-3-.6-1.6-2.6 0-1.1C1.6-2.6 3-.6 0 1.6Z" fill="#ff4081"/></g></g>`;
+        s += `<g${anim ? "" : ` transform="translate(${x + w / 2} ${fy})"`}>`;
+        if (anim) s += `<animateTransform attributeName="transform" type="translate" values="${xa} ${fy};${xb} ${fy - 3};${xa} ${fy}" keyTimes="0;.5;1" dur="${D}s" begin="${ph}s" repeatCount="indefinite"/><animateTransform attributeName="transform" type="scale" additive="sum" calcMode="discrete" values="1 1;-1 1;1 1" keyTimes="0;.5;1" dur="${D}s" begin="${ph}s" repeatCount="indefinite"/>`;
+        s += `<path d="M-4.5 0L-8.6-3.2V3.2Z" fill="#fb8c00"/><path d="M-1-2.8Q.5-5 2.2-2.8Z" fill="#fb8c00"/><ellipse rx="5.2" ry="3.3" fill="#ffa726"/><circle cx="2.6" cy="-.9" r=".9" fill="#263238"/><path d="M1.5 .9Q3 2.5 4.5 .9" fill="none" stroke="#263238" stroke-width=".7" stroke-linecap="round"/>` + heart(4.5, 0) + heart(-4, 1.2) + `</g>`;
+      }
+      s += `</g>`;
+    }
+  });
+
+  const gy = H - g / max * H;
+  s += `<line x1="0" x2="${W}" y1="${gy}" y2="${gy}" stroke="var(--mut)" stroke-width="1.5" stroke-dasharray="5 5"/>`;
+  s += `<text x="${W - 4}" y="${gy - 3}" text-anchor="end" style="font-size:8px;font-weight:700">Tavoite ${g} ml</text>`;
+
+  $("wchart").innerHTML = `<svg viewBox="0 0 ${W} ${H}">${s}</svg>`;
+  $("wlab").innerHTML = days.map(d => `<div><b style="color:${d.col}">${d.ml}</b><span class="sub">${d.label}</span></div>`).join("");
+  renderWaterMonth();
+}
+function renderWaterMonth() {
+  const g = S.waterGoal;
+  const box = $("wchartMonth"), avgEl = $("wmAvg"), mnEl = $("wmMin"), mxEl = $("wmMax"), anEl = $("wmAnalysis");
+  if (!box) return;
+
+  const days = [];
+  for (let o = 29; o >= 0; o--) {
+    const k = dk(-o);
+    const ml = S.waterLogs[k] || 0;
+    days.push({ k, ml, ok: ml >= g, lbl: `${Number(k.slice(8))}.${Number(k.slice(5, 7))}.` });
+  }
+
+  const maxVal = Math.max(g, ...days.map(d => d.ml), 500) * 1.15;
+  const W = 300, H = 115, padL = 34, padR = 12, padT = 16, padB = 20;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const getX = i => padL + (i / 29) * plotW;
+  const getY = v => padT + plotH - (v / maxVal) * plotH;
+
+  let s = `<defs>
+    <linearGradient id="wmLineGrad" x1="0%" y1="0%" x2="100%" y2="0%">`;
+  days.forEach((d, i) => {
+    const pct = ((i / 29) * 100).toFixed(1);
+    const col = d.ok ? "#0288d1" : "#ff4e00";
+    s += `<stop offset="${pct}%" stop-color="${col}"/>`;
+  });
+  s += `</linearGradient>
+    <linearGradient id="wmAreaGrad" x1="0%" y1="0%" x2="100%" y2="0%">`;
+  days.forEach((d, i) => {
+    const pct = ((i / 29) * 100).toFixed(1);
+    const col = d.ok ? "#0288d1" : "#ff4e00";
+    s += `<stop offset="${pct}%" stop-color="${col}" stop-opacity="0.22"/>`;
+  });
+  s += `</linearGradient>
+    <filter id="wmGlow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#0288d1" flood-opacity="0.25"/>
+    </filter>
+  </defs>`;
+
+  [0, 0.5, 1].forEach(r => {
+    const val = maxVal * r, y = getY(val);
+    s += `<line x1="${padL}" x2="${W - padR}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1" stroke-dasharray="${r === 0 ? "" : "2 4"}"/>`;
+    s += `<text x="${padL - 5}" y="${y + 3}" text-anchor="end" style="font-size:7.5px">${(val / 1000).toFixed(1).replace(".", ",")} l</text>`;
+  });
+
+  const gy = getY(g);
+  s += `<line x1="${padL}" x2="${W - padR}" y1="${gy}" y2="${gy}" stroke="var(--mut)" stroke-width="1.2" stroke-dasharray="4 4"/>`;
+
+  const pts = days.map((d, i) => ({ x: getX(i), y: getY(d.ml), ok: d.ok, ml: d.ml }));
+  let dLine = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i], p1 = pts[i + 1];
+    const cx = (p0.x + p1.x) / 2;
+    dLine += ` C ${cx} ${p0.y}, ${cx} ${p1.y}, ${p1.x} ${p1.y}`;
+  }
+  const dArea = `${dLine} L ${pts[pts.length - 1].x} ${padT + plotH} L ${pts[0].x} ${padT + plotH} Z`;
+  s += `<path d="${dArea}" fill="url(#wmAreaGrad)"/>`;
+  s += `<path d="${dLine}" fill="none" stroke="url(#wmLineGrad)" stroke-width="2.5" stroke-linecap="round" filter="url(#wmGlow)"/>`;
+
+  pts.forEach((pt, i) => {
+    if (i === 0 || i === 29 || i % 7 === 0) {
+      s += `<text x="${pt.x}" y="${H - 4}" text-anchor="middle" style="font-size:7.5px;font-weight:600">${days[i].lbl}</text>`;
+    }
+    const col = pt.ok ? "#0284c7" : "#e5481f";
+    s += `<circle cx="${pt.x}" cy="${pt.y}" r="${i === 29 ? 3.2 : 2}" fill="var(--card)" stroke="${col}" stroke-width="1.8"/>`;
+  });
+
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${s}</svg>`;
+
+  const loggedDays = days.filter(d => d.ml > 0);
+  const avgMl = loggedDays.length ? Math.round(loggedDays.reduce((a, b) => a + b.ml, 0) / loggedDays.length) : 0;
+  const okCount = days.filter(d => d.ok).length;
+  avgEl.textContent = `Ka: ${(avgMl / 1000).toFixed(1).replace(".", ",")} l/pv`;
+  mnEl.textContent = `Tavoite täynnä: ${okCount} / 30 pv`;
+  mxEl.textContent = `Tavoite: ${(g / 1000).toFixed(1).replace(".", ",")} l`;
+
+  if (anEl) {
+    if (!loggedDays.length) {
+      anEl.textContent = "Kuukauden seurantajaksolle ei ole vielä kirjattu vedenjuontia. Kirjaa päivän ensimmäinen lasillinen aloittaaksesi kokonaistrendin seurannan.";
+    } else {
+      const first15 = days.slice(0, 15).reduce((a, b) => a + b.ml, 0) / 15;
+      const last15 = days.slice(15).reduce((a, b) => a + b.ml, 0) / 15;
+      const diff = last15 - first15;
+      const dirTxt = diff > 150 ? "selvästi nousujohteinen loppukuukautta kohden" : diff < -150 ? "hieman laskeva viimeisten kahden viikon aikana" : "pysynyt tasaisena koko tarkastelujakson ajan";
+      const sumTxt = okCount >= 22 ? "Nesteytysrutiini on erittäin vahvalla tasolla." : okCount >= 12 ? "Tavoite täyttyy säännöllisesti, mutta yksittäisiä vajaampia päiviä mahtuu vielä mukaan." : "Päivätavoite jää vielä usein vajaaksi – säännöllinen juominen jo aamupäivästä auttaa nostamaan keskiarvoa.";
+      anEl.textContent = `Viimeisen 30 päivän aikana keskimääräinen päiväannos on ollut ${(avgMl / 1000).toFixed(1).replace(".", ",")} litraa, ja päivätavoite (${(g / 1000).toFixed(1).replace(".", ",")} l) on saavutettu ${okCount} päivänä. Kokonaistrendi on ${dirTxt}. ${sumTxt}`;
+    }
+  }
+}
+
+function renderHistory() {
+  if (!$("hdate").value) $("hdate").value = dk(0);
+  const w = hTab === "weight", map = w ? S.weightLogs : S.waterLogs;
+  $("htitle").textContent = w ? "Lisää tai muokkaa painomerkintää:" : "Lisää tai muokkaa vesimerkintää (ml):";
+  $("hval").placeholder = w ? "kg, esim. 92,5" : "ml, esim. 2500";
+  const keys = Object.keys(map).sort().reverse();
+  $("hlist").innerHTML = keys.length ? keys.map(k => `<div class="item"><div><div class="sub"><b>${k}</b></div><b style="font-size:16px">${w ? n1(Number(map[k])) + " kg" : map[k] + " ml"}</b></div><button class="mini" style="color:#e11d48" data-del="${k}">Poista</button></div>`).join("") : '<div class="sub" style="text-align:center;padding:24px">Ei tallennettuja merkintöjä</div>';
+}
+
+function renderAll() {
+  const now = new Date();
+  const t = now.toLocaleDateString("fi-FI", {weekday: "long", day: "numeric", month: "long"});
+  const tm = now.toLocaleTimeString("fi-FI", {hour: "2-digit", minute: "2-digit"});
+  $("date").textContent = `${t.charAt(0).toUpperCase() + t.slice(1)} · klo ${tm}`;
+  if (tab === "dashboard") { renderWater(); renderWeight(); }
+  else if (tab === "goals") { renderGoals(); }
+  else if (tab === "history") renderHistory();
+  else if (tab === "settings") updateAutoBackupUI();
+}
+
+const TITLES = {dashboard: "Päivän seuranta", goals: "Tavoitteet", history: "Merkintöjen historia", settings: "Asetukset & varmuuskopio"};
+function go(t) {
+  tab = t; $("title").textContent = TITLES[t];
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "v-" + t));
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  renderAll(); window.scrollTo(0, 0);
+}
+
+// ---- tapahtumat ----
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => go(b.dataset.tab));
+document.querySelectorAll(".quick button").forEach(b => b.onclick = () => {
+  const ml = +b.dataset.ml, k = dk(0);
+  S.waterLogs[k] = (S.waterLogs[k] || 0) + ml; lastAdd = {k, ml}; save(); renderWater(); toast("Lisätty +" + ml + " ml");
+});
+$("undo").onclick = () => { if (!lastAdd) return; S.waterLogs[lastAdd.k] = Math.max(0, (S.waterLogs[lastAdd.k] || 0) - lastAdd.ml); lastAdd = null; save(); renderWater(); toast("Viimeisin lisäys peruutettu"); };
+$("reset").onclick = () => { S.waterLogs[dk(0)] = 0; lastAdd = null; save(); renderWater(); toast("Päivän vesisaldo nollattu"); };
+$("setGoal").onclick = () => {
+  const l = pf($("goal").value);
+  if (l >= 0.1 && l <= 15) { S.waterGoal = Math.round(l * 1000); save(); renderGoals(); toast("Tavoite asetettu: " + n1(l) + " l"); } else toast("Syötä tavoite 0,1–15 l");
+};
+$("saveKg").onclick = () => {
+  const v = pf($("kg").value);
+  if (v >= 20 && v <= 350) { S.weightLogs[dk(0)] = Math.round(v * 10) / 10; save(); $("kg").value = ""; renderWeight(); toast("Paino tallennettu: " + n1(S.weightLogs[dk(0)]) + " kg"); } else toast("Syötä kelvollinen paino");
+};
+$("hw").onclick = () => { hTab = "weight"; $("hw").classList.add("on"); $("hv").classList.remove("on"); renderHistory(); };
+$("hv").onclick = () => { hTab = "water"; $("hv").classList.add("on"); $("hw").classList.remove("on"); renderHistory(); };
+$("hsave").onclick = () => {
+  const d = $("hdate").value, v = pf($("hval").value);
+  if (!d) return toast("Valitse päivämäärä");
+  if (hTab === "weight") { if (!(v >= 20 && v <= 350)) return toast("Syötä kelvollinen paino"); S.weightLogs[d] = Math.round(v * 10) / 10; }
+  else { if (!(v >= 0 && v <= 20000)) return toast("Syötä kelvollinen vesimäärä"); S.waterLogs[d] = Math.round(v); }
+  save(); $("hval").value = ""; renderHistory(); toast("Merkintä tallennettu");
+};
+$("hlist").onclick = e => {
+  const k = e.target.dataset.del; if (!k) return;
+  delete (hTab === "weight" ? S.weightLogs : S.waterLogs)[k]; save(); renderHistory(); toast("Merkintä poistettu");
+};
+$("toggleAutoBackup").onclick = () => {
+  const next = !isAutoBackupEnabled();
+  try { localStorage.setItem(AUTO_BACKUP_ENABLED_KEY, String(next)); } catch (e) {}
+  updateAutoBackupUI();
+  toast(next ? "Päivittäinen automaattinen varmuuskopiointi käytössä" : "Automaattinen varmuuskopiointi pois päältä");
+  if (next) checkDailyAutoBackup();
+};
+$("exp").onclick = () => {
+  const today = dk(0);
+  triggerFileDownload("terveysdashboard_varmuuskopio_" + today + ".json");
+  try { localStorage.setItem(AUTO_BACKUP_KEY, today); } catch (e) {}
+  updateAutoBackupUI();
+  toast("Varmuuskopio ladattu laitteelle");
+};
+$("impb").onclick = () => $("imp").click();
+$("imp").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { try { const o = JSON.parse(r.result); if (o && typeof o.waterLogs === "object" && typeof o.weightLogs === "object") { adopt(o); save(); renderAll(); toast("Varmuuskopio palautettu"); } else toast("Virheellinen tiedosto"); } catch (x) { toast("Virhe tiedoston lukemisessa"); } };
+  r.readAsText(f); e.target.value = "";
+};
+$("demo").onclick = () => {
+  seedTestData();
+  save();
+  renderAll();
+  toast("Testidata ladattu (lukittu tavoite 85,0 kg / 30.5.2027)");
+};
+$("clear").onclick = () => $("confirm").style.display = "grid";
+$("no").onclick = () => $("confirm").style.display = "none";
+$("yes").onclick = () => { $("confirm").style.display = "none"; lastAdd = null; S = blank(); save(); renderAll(); toast("Kaikki tiedot tyhjennetty"); };
+
+load().then(() => {
+  renderAll();
+  checkDailyAutoBackup();
+  setInterval(() => {
+    if (tab === "dashboard") renderAll();
+  }, 30000);
+});
+</script>
+</body>
+</html>
